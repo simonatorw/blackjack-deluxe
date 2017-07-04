@@ -21,6 +21,11 @@
 				flex: 0 0 100%;
 				flex-flow: row wrap;
 				justify-content: center;
+				min-height: calc(100vh - 38px);
+			}
+			.dealer, .player {
+				display: flex;
+				flex: 0 0 100%;
 			}
 			.card {
 				flex: 0 0 6%;
@@ -66,7 +71,10 @@
 		</style>
 	</head>
 	<body>
-		<div class="container"></div>
+		<div class="container">
+			<div class="dealer"></div>
+			<div class="player"></div>
+		</div>
 		<script>
 			class BlackjackDeluxe {
 				constructor(decks, suits, values) {
@@ -85,11 +93,20 @@
 					for (let i = 0; i < this.decks; i++) {
 						this.dealt[i] = new Array(this.suits);
 						for (let j = 0; j < this.suits; j++) {
-							this.dealt[i][j] = new Array(this.values);
+							this.dealt[i][j] = new Array(this.values + 1);
 						}
 					}
 					console.log(this.dealt);
 				}
+				reShuffle() {
+					for (let i = 0; i < this.decks; i++) {
+						for (let j = 0; j < this.suits; j++) {
+							for (let k = 1; k <= this.values; k++) {
+								this.dealt[i][j][k] = 0;
+							}
+						}
+					}
+				}				
 				drawCard() {
 					let val, suit, card;
 					do {
@@ -112,7 +129,9 @@
 					}
 				}
 				isUnique(card) {
-					if (this.numDealt > this.maxCards) {
+					if (this.numDealt >= this.maxCards) {
+						this.numDealt = 0;
+						this.reShuffle();
 						return true;
 					}
 					let checked = 0;
@@ -140,10 +159,23 @@
 				mapSuit(suit) {
 					return this.suitsMap[suit]; 
 				}
-				renderCard(card) {
+				dealAll() {
+					for (let i = this.maxCards + 2; i--;) {
+						let card = this.drawCard();
+						this.renderCard(card);
+					}
+					console.log(this.dealt);				
+				}
+				deal(person) {
+					for (let i = 	2; i--;) {
+						let card = this.drawCard();
+						this.renderCard(card, person);
+					}					
+				}
+				renderCard(card, person) {
 					const val = this.mapValue(card.val);
 					const suit = this.mapSuit(card.suit);
-					const $container = document.getElementsByClassName('container')[0];
+					const $container = document.getElementsByClassName(person)[0];
 					console.log(val, suit);
 					const tpl = `<div class="card">
 						<div class="value ${suit}">${val}</div>
@@ -157,12 +189,9 @@
 				}
 				init() {
 					this.shuffle();
-				
-					while (this.numDealt < this.maxCards) {
-						let card = this.drawCard();
-						this.renderCard(card);
-					}
-					console.log(this.dealt);
+					//this.dealAll();
+					this.deal('dealer');
+					this.deal('player');
 					//this.events();
 				}
 			}

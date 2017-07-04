@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Blackjack Deluxe</title>
+		<style>
+			html {
+				height: 100%;
+			}
+			body {
+				height: 100%;
+				background-color: #000;
+				font-family: verdana, sans-serif;
+				font-size: 12px;
+				color: #fff;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="app"></div>
+		<script>
+			class BlackjackDeluxe {
+				constructor(decks, suits, values) {
+					console.log('Running...');
+					this.dealt = null;
+					this.decks = decks || 6;
+					this.suits = suits || 4;
+					this.values = values || 13;
+					this.numDealt = 0;
+					this.maxCards = this.decks * this.suits * this.values;
+					this.init();
+				}
+				shuffle() {
+					this.dealt = new Array(this.decks);
+					for (let i = 0; i < this.decks; i++) {
+						this.dealt[i] = new Array(this.suits);
+						for (let j = 0; j < this.suits; j++) {
+							this.dealt[i][j] = new Array(this.values);
+						}
+					}
+					console.log(this.dealt);
+				}
+				getCard() {
+					let val, suit, card;
+					do {
+						val = (Math.floor(Math.random() * this.values)) + 1;
+						suit = Math.floor(Math.random() * this.suits);
+						card = { val, suit };
+					} while (!this.isUnique(card));
+					this.record(card);
+					console.log(card, this.dealt);
+					
+				}
+				record(card) {
+					const list = this.dealt;
+					this.numDealt++;
+					for (let i = 0; i < this.decks; i++) {
+						if (!list[i][card.suit][card.val]) {
+							list[i][card.suit][card.val] = 1;
+							break;
+						}
+					}
+				}
+				isUnique(card) {
+					if (this.numDealt > this.maxCards) {
+						return true;
+					}
+					let checked = 0;
+					for (let i = 0; i < this.decks; i++) {
+						if (this.dealt[i][card.suit][card.val]) {
+							checked++;
+						}
+					}
+					return !(checked === this.decks);
+				}
+				events() {
+				
+				}
+				init() {
+					this.shuffle();
+				
+					while (this.numDealt < this.maxCards) {
+						this.getCard();
+					}
+					console.log(this.dealt);
+					//this.events();
+				}
+			}
+			
+			new BlackjackDeluxe();
+		</script>
+	</body>
+</html>

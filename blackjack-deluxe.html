@@ -26,14 +26,20 @@
 			.dealer, .player {
 				display: flex;
 				flex: 0 0 100%;
+				flex-flow: row wrap;
+			}
+			.cardContainer {
+				flex: 0 0 6%;
+				margin: 0 10px 10px 0;
 			}
 			.card {
-				flex: 0 0 6%;
-				height: 120px;
+				height: 110px;
 				background-color: #fff;
 				border-radius: 3px;
 				padding: 6px;
-				margin: 0 10px 10px 0;
+			}
+			.card.down {
+				display: none;
 			}
 			.value {
 			    font-family: times, serif;
@@ -43,7 +49,16 @@
 			.suit {
 				font-size: 3em;
 				text-align: center;
-				margin-top: 10px;
+				margin-top: 0px;
+			}
+			.faceDown {
+				height: 100%;
+				border-radius: 3px;
+				background: linear-gradient(115deg, transparent 75%, rgba(255,255,255,.8) 75%) 0 0,
+					linear-gradient(245deg, transparent 75%, rgba(255,255,255,.8) 75%) 0 0,
+					linear-gradient(115deg, transparent 75%, rgba(255,255,255,.8) 75%) 7px -15px,
+					linear-gradient(245deg, transparent 75%, rgba(255,255,255,.8) 75%) 7px -15px, purple;
+				background-size: 15px 30px;		
 			}
 			.value.spade, .value.club {
 				color: #000;
@@ -67,13 +82,76 @@
 				content: "\2660";
 				color: #000;
 			}
-			
+			.controls {
+				flex: 0 0 100%;
+				align-self: flex-end;
+			}
+			.controlButton {
+				padding: 10px 20px;
+				font-size: 2em;
+				background-color: #aaa;
+				color: #fff;
+				border: 3px solid #666;
+				margin-right: 5px;
+				min-width: 120px;
+			}
+			.active {
+				background-color: green;
+				border-color: darkgreen;
+			}
+			.active:active {
+				background-color: darkgreen;
+				box-shadow: 0 -3px #666;
+				transform: translateY(3px);
+			}
+			/* Ripple magic */
+			.active {
+				position: relative;
+				overflow: hidden;
+			}
+
+			.active:after {
+				content: '';
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				width: 5px;
+				height: 5px;
+				background: rgba(255, 255, 255, .5);
+				opacity: 0;
+				border-radius: 100%;
+				transform: scale(1, 1) translate(-50%);
+				transform-origin: 50% 50%;
+			}
+
+			@keyframes ripple {
+				0% {
+					transform: scale(0, 0);
+					opacity: 1;
+				}
+				20% {
+					transform: scale(25, 25);
+					opacity: 1;
+				}
+				100% {
+					opacity: 0;
+					transform: scale(40, 40);
+				}
+			}
+			.active:focus:not(:active)::after {
+				animation: ripple .6s ease-out;
+			}
 		</style>
 	</head>
 	<body>
 		<div class="container">
 			<div class="dealer"></div>
 			<div class="player"></div>
+			<div class="controls">
+				<button class="controlButton">Deal</button>
+				<button class="controlButton">Hit</button>
+				<button class="controlButton">Stay</button>
+			</div>
 		</div>
 		<script>
 			class BlackjackDeluxe {
@@ -86,6 +164,9 @@
 					this.values = values || 13;
 					this.numDealt = 0;
 					this.maxCards = this.decks * this.suits * this.values;
+					this.sum = {};
+					this.card = {};
+					this.aces = {};
 					this.init();
 				}
 				shuffle() {
@@ -96,7 +177,7 @@
 							this.dealt[i][j] = new Array(this.values + 1);
 						}
 					}
-					console.log(this.dealt);
+					//console.log(this.dealt);
 				}
 				reShuffle() {
 					for (let i = 0; i < this.decks; i++) {
@@ -167,32 +248,153 @@
 					console.log(this.dealt);				
 				}
 				deal(person) {
-					for (let i = 	2; i--;) {
+					let sum = 0;
+					let aces = 0;
+					for (var i = 	0; i < 2; i++) {
 						let card = this.drawCard();
-						this.renderCard(card, person);
-					}					
+						this.renderCard(card, person, i);
+						sum = sum + (card.val > 10 ? 10 : card.val);
+						if (card.val === 1) {
+							aces++;
+						}
+					}
+					this.aces[person] = aces;
+					this.sum[person] = sum;
+					this.card[person] = i;
 				}
-				renderCard(card, person) {
+				hit(person) {
+					let sum = 0;
+					const card = this.drawCard();
+					this.renderCard(card, person, this.card[person]++);
+					if (card.val === 1) {
+						this.aces[person]++;
+					}					
+					this.sum[person] = this.sum[person] + (card.val > 10 ? 10 : card.val);
+				}
+				resetButtons() {
+					this.setButton('Deal', 1);
+					this.setButton('Hit', 0);
+					this.setButton('Stay', 0);				
+				}
+				compute(stay) {
+					const dealerSum = this.sum.dealer;
+					const playerSum = this.sum.player;
+					const dealerAces = this.aces.dealer;
+					const playerAces = this.aces.player;
+					console.log(dealerSum, dealerAces, playerSum, playerAces);
+					
+					if (dealerSum === playerSum === 21) {
+						console.log('push');
+						this.showDealerCard();
+						this.resetButtons();
+					} else if (dealerSum === 21) {
+						this.showDealerCard();
+						console.log('dealer wins');
+						this.resetButtons();
+					} else if (playerSum === 21) {
+						this.showDealerCard();
+						console.log('player wins');
+						this.resetButtons();
+					} else if (playerSum > 21) {
+						this.showDealerCard();
+						console.log('player busted');
+						this.resetButtons();
+					} else if (dealerSum > 21) {
+						this.showDealerCard();
+						console.log('dealer busted');
+						this.resetButtons();						
+					} else if (stay) {
+						if (playerSum > dealerSum) {
+							console.log('you win');
+						} else if (playerSum < dealerSum) {
+							console.log('dealer wins');
+						} else {
+							console.log('push');
+						}
+						this.showDealerCard();
+						this.resetButtons();
+					} else {
+						this.setButton('Hit', 1);
+						this.setButton('Stay', 1);
+					}
+				}
+				events() {
+					const $container = document.getElementsByClassName('controls')[0];
+					
+					$container.addEventListener('click', (e) => {
+						if (!e.target.className.includes('active')) {
+							return;
+						}
+						const targ = e.target.outerText;
+						
+						switch(targ) {
+							case 'Deal':
+								this.clearTable();
+								this.deal('dealer');
+								this.deal('player');
+								this.setButton('Deal');
+								this.compute();
+								break;
+							case 'Hit':
+								this.hit('player');
+								this.compute();
+								break;
+							case 'Stay':
+								this.setButton('Hit');
+								while (this.sum.dealer < 17) {
+									this.hit('dealer');
+								}
+								this.compute(1);
+						}
+					}, false);
+				
+				}
+				showDealerCard() {
+					document.getElementsByClassName('card down')[0].className = 'card';
+					document.getElementsByClassName('card up')[0].className = 'card down';
+				}
+				setButton(text, on) {
+					const $containers = document.getElementsByClassName('controlButton');
+					
+					for (let i = $containers.length; i--;) {
+						if ($containers[i].outerText === text && on) {
+							$containers[i].className = 'controlButton active';
+						} else if ($containers[i].outerText === text) {
+							$containers[i].className = 'controlButton';
+						}
+					}
+				}
+				clearTable() {
+					document.getElementsByClassName('dealer')[0].innerHTML = '';
+					document.getElementsByClassName('player')[0].innerHTML = '';
+				}
+				renderCard(card, person, i) {
 					const val = this.mapValue(card.val);
 					const suit = this.mapSuit(card.suit);
 					const $container = document.getElementsByClassName(person)[0];
-					console.log(val, suit);
-					const tpl = `<div class="card">
+					let tpl = `<div id="${suit}_${val}_${i}" class="cardContainer"><div class="card">
 						<div class="value ${suit}">${val}</div>
 						<div class="suit ${suit}"></div>
-					</div>`;
-					
+					</div></div>`;
+					if (person === 'dealer' && i === 1) {
+						tpl = `<div id="${suit}_${val}_${i}" class="cardContainer">
+							<div class="card down">
+								<div class="value ${suit}">${val}</div>
+								<div class="suit ${suit}"></div>
+							</div>						
+							<div class="card up">
+								<div class="faceDown"></div>
+							</div>
+						</div>`;					
+					}
 					$container.insertAdjacentHTML('beforeend', tpl);				
 				}
-				events() {
-				
-				}
+
 				init() {
 					this.shuffle();
-					//this.dealAll();
-					this.deal('dealer');
-					this.deal('player');
-					//this.events();
+					this.setButton('Deal', 1);
+					this.events();
+					document.getElementsByClassName('controlButton')[0].click();
 				}
 			}
 			

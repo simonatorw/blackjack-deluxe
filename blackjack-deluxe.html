@@ -82,9 +82,38 @@
 				content: "\2660";
 				color: #000;
 			}
+			.cardSum {
+				font-size: 2em;
+				color: #666;
+			}
+			.gameResult {
+				font-size: 3em;
+				margin-left: 6px;
+			}
 			.controls {
-				flex: 0 0 100%;
+				flex: 0 0 75%;
 				align-self: flex-end;
+			}
+			.money {
+				flex: 0 0 25%;
+				align-self: flex-end;
+				display: flex;
+				justify-content: flex-end;
+			}
+			.bet {
+				background-color: #333;
+				border-radius: 20px;
+				padding: 12px 10px 8px 10px;
+				font-size: 1.3em;
+			}
+			.total {
+				font-size: 2em;
+				color: #666;
+				margin-left: 20px;
+			}
+			.amt {
+				font-size: 3em;
+				color: cyan;
 			}
 			.controlButton {
 				padding: 10px 20px;
@@ -94,6 +123,8 @@
 				border: 3px solid #666;
 				margin-right: 5px;
 				min-width: 120px;
+				letter-spacing: 1px;
+				text-transform: uppercase;
 			}
 			.active {
 				background-color: green;
@@ -152,6 +183,9 @@
 				<button class="controlButton">Hit</button>
 				<button class="controlButton">Stay</button>
 			</div>
+			<div class="money">
+				<span class="bet">15</span><span class="total">$</span><span class="amt"></span>
+			</div>
 		</div>
 		<script>
 			class BlackjackDeluxe {
@@ -167,6 +201,7 @@
 					this.sum = {};
 					this.card = {};
 					this.aces = {};
+					this.amt = 100;
 					this.init();
 				}
 				shuffle() {
@@ -247,34 +282,42 @@
 					}
 					console.log(this.dealt);				
 				}
+				adjustSum(prevSum, val, person) {
+					let sum = (val > 10 ? 10 : (val === 1 ? 11 : val));
+					sum = prevSum + sum;
+					if (sum > 21 && this.aces[person]) {
+						sum = sum - 10;
+						this.aces[person]--;
+					}
+					return sum;
+				}
 				deal(person) {
 					let sum = 0;
-					let aces = 0;
-					for (var i = 	0; i < 2; i++) {
+					this.aces[person] = 0;
+					for (var i = 0; i < 2; i++) {
 						let card = this.drawCard();
 						this.renderCard(card, person, i);
-						sum = sum + (card.val > 10 ? 10 : card.val);
 						if (card.val === 1) {
-							aces++;
-						}
+							this.aces[person]++;
+						}						
+						sum = this.adjustSum(sum, card.val, person);
 					}
-					this.aces[person] = aces;
 					this.sum[person] = sum;
 					this.card[person] = i;
 				}
 				hit(person) {
 					let sum = 0;
 					const card = this.drawCard();
-					this.renderCard(card, person, this.card[person]++);
 					if (card.val === 1) {
 						this.aces[person]++;
 					}					
-					this.sum[person] = this.sum[person] + (card.val > 10 ? 10 : card.val);
+					this.renderCard(card, person, this.card[person]++);					
+					this.sum[person] =  this.adjustSum(this.sum[person], card.val, person);
 				}
 				resetButtons() {
-					this.setButton('Deal', 1);
-					this.setButton('Hit', 0);
-					this.setButton('Stay', 0);				
+					this.renderButton(BlackjackDeluxe.BUTTONS.DEAL, 1);
+					this.renderButton(BlackjackDeluxe.BUTTONS.HIT, 0);
+					this.renderButton(BlackjackDeluxe.BUTTONS.STAY, 0);				
 				}
 				compute(stay) {
 					const dealerSum = this.sum.dealer;
@@ -283,40 +326,32 @@
 					const playerAces = this.aces.player;
 					console.log(dealerSum, dealerAces, playerSum, playerAces);
 					
-					if (dealerSum === playerSum === 21) {
-						console.log('push');
-						this.showDealerCard();
-						this.resetButtons();
+					if (dealerSum === 21 && playerSum === 21) {
+						this.doResult('Push', 'dealer', 0);
 					} else if (dealerSum === 21) {
-						this.showDealerCard();
-						console.log('dealer wins');
-						this.resetButtons();
-					} else if (playerSum === 21) {
-						this.showDealerCard();
-						console.log('player wins');
-						this.resetButtons();
+						this.doResult('Dealer wins!', 'dealer', -15);
+					} else if (playerSum === 21 && !stay) {
+						this.doResult('Blackjack!', 'player', 22.5);
 					} else if (playerSum > 21) {
-						this.showDealerCard();
-						console.log('player busted');
-						this.resetButtons();
+						this.doResult('Player busted', 'player', -15);
 					} else if (dealerSum > 21) {
-						this.showDealerCard();
-						console.log('dealer busted');
-						this.resetButtons();						
+						this.doResult('Dealer busted', 'dealer', 15);		
 					} else if (stay) {
 						if (playerSum > dealerSum) {
-							console.log('you win');
+							this.doResult('Player wins!', 'player', 15);
 						} else if (playerSum < dealerSum) {
-							console.log('dealer wins');
+							this.doResult('Dealer wins!', 'dealer', -15);
 						} else {
-							console.log('push');
+							this.doResult('Push', 'dealer', 0);
 						}
-						this.showDealerCard();
-						this.resetButtons();
 					} else {
-						this.setButton('Hit', 1);
-						this.setButton('Stay', 1);
+						this.renderButton(BlackjackDeluxe.BUTTONS.HIT, 1);
+						this.renderButton(BlackjackDeluxe.BUTTONS.STAY, 1);
 					}
+				}
+				bet() {
+					this.amt = this.amt - 15;
+					this.renderAmt(this.amt);
 				}
 				events() {
 					const $container = document.getElementsByClassName('controls')[0];
@@ -328,19 +363,21 @@
 						const targ = e.target.outerText;
 						
 						switch(targ) {
-							case 'Deal':
-								this.clearTable();
+							case BlackjackDeluxe.BUTTONS.DEAL:
+								this.renderClear();
 								this.deal('dealer');
 								this.deal('player');
-								this.setButton('Deal');
+								this.renderButton(BlackjackDeluxe.BUTTONS.DEAL);
 								this.compute();
 								break;
-							case 'Hit':
+							case BlackjackDeluxe.BUTTONS.HIT:
 								this.hit('player');
-								this.compute();
+								if (this.sum.player > 21) {
+									this.compute();
+								}
 								break;
-							case 'Stay':
-								this.setButton('Hit');
+							case BlackjackDeluxe.BUTTONS.STAY:
+								this.renderButton(BlackjackDeluxe.BUTTONS.HIT);
 								while (this.sum.dealer < 17) {
 									this.hit('dealer');
 								}
@@ -349,11 +386,27 @@
 					}, false);
 				
 				}
-				showDealerCard() {
+				doResult(msg, person, amt) {
+					this.renderResult(msg, person);
+					let nextPerson = 'dealer';
+					if (person === 'dealer') {
+						nextPerson = 'player';
+					}
+					this.renderResult('', nextPerson);
+					this.renderDealerCard();
+					this.resetButtons();	
+					this.amt = this.amt + amt
+					this.renderAmt(this.amt);
+				}
+				renderAmt(amt) {
+					const $container = document.getElementsByClassName('amt')[0];
+					$container.innerHTML = amt;
+				}
+				renderDealerCard() {
 					document.getElementsByClassName('card down')[0].className = 'card';
 					document.getElementsByClassName('card up')[0].className = 'card down';
 				}
-				setButton(text, on) {
+				renderButton(text, on) {
 					const $containers = document.getElementsByClassName('controlButton');
 					
 					for (let i = $containers.length; i--;) {
@@ -364,9 +417,14 @@
 						}
 					}
 				}
-				clearTable() {
+				renderClear() {
 					document.getElementsByClassName('dealer')[0].innerHTML = '';
 					document.getElementsByClassName('player')[0].innerHTML = '';
+				}
+				renderResult(result, person) {
+					const $container = document.getElementsByClassName(person)[0];
+					const tpl = `<span class="cardSum">${this.sum[person]}</span><span class="gameResult">${result}</span>`;
+					$container.insertAdjacentHTML('beforeend', tpl);
 				}
 				renderCard(card, person, i) {
 					const val = this.mapValue(card.val);
@@ -392,11 +450,23 @@
 
 				init() {
 					this.shuffle();
-					this.setButton('Deal', 1);
+					//console.log(BlackjackDeluxe.BUTTONS.DEAL);
+					this.renderButton(BlackjackDeluxe.BUTTONS.DEAL, 1);
 					this.events();
+					this.renderAmt(this.amt);
+					this.bet();
 					document.getElementsByClassName('controlButton')[0].click();
 				}
 			}
+			
+			BlackjackDeluxe.BUTTONS = (function() {
+				let obj = {};
+				let list = ['Deal', 'Hit', 'Stay'];
+				for (let i = list.length; i--;) {
+					obj[list[i].toUpperCase()] = list[i].toUpperCase();
+				}
+				return obj;
+			}());
 			
 			new BlackjackDeluxe();
 		</script>

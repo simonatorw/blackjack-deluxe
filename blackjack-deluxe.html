@@ -90,7 +90,7 @@
 				color: #666;
 			}
 			.gameResult {
-				font-size: 3em;
+				font-size: 2.1em;
 				margin-left: 6px;
 			}
 			.controls {
@@ -183,13 +183,9 @@
 		<div class="container">
 			<div class="dealer"></div>
 			<div class="player"></div>
-			<div class="controls">
-				<button class="controlButton">Deal</button>
-				<button class="controlButton">Hit</button>
-				<button class="controlButton">Stay</button>
-			</div>
+			<div class="controls"></div>
 			<div class="money">
-				<span class="bet">15</span><span class="total">$</span><span class="amt"></span>
+				<span class="bet"></span><span class="total">$</span><span class="amt"></span>
 			</div>
 		</div>
 		<script>
@@ -207,6 +203,7 @@
 					this.card = {};
 					this.aces = {};
 					this.amt = 100;
+					this.betAmt = 0;
 					this.init();
 				}
 				shuffle() {
@@ -322,7 +319,8 @@
 				resetButtons() {
 					this.renderButton(BlackjackDeluxe.BUTTONS.DEAL, 1);
 					this.renderButton(BlackjackDeluxe.BUTTONS.HIT, 0);
-					this.renderButton(BlackjackDeluxe.BUTTONS.STAY, 0);				
+					this.renderButton(BlackjackDeluxe.BUTTONS.STAY, 0);
+					this.renderButton(BlackjackDeluxe.BUTTONS['2X'], 0);
 				}
 				compute(stay) {
 					const dealerSum = this.sum.dealer;
@@ -334,29 +332,40 @@
 					if (dealerSum === 21 && playerSum === 21) {
 						this.doResult('Push', 'dealer', 0);
 					} else if (dealerSum === 21) {
-						this.doResult('Dealer wins!', 'dealer', -15);
+						this.doResult('Dealer wins!', 'dealer', -1);
 					} else if (playerSum === 21 && !stay) {
-						this.doResult('Blackjack!', 'player', 22.5);
+						this.doResult('Blackjack!', 'player', 1.5);
 					} else if (playerSum > 21) {
-						this.doResult('Player busted', 'player', -15);
+						this.doResult('Player busted', 'player', -1);
 					} else if (dealerSum > 21) {
-						this.doResult('Dealer busted', 'dealer', 15);		
+						this.doResult('Dealer busted', 'dealer', 1);		
 					} else if (stay) {
 						if (playerSum > dealerSum) {
-							this.doResult('Player wins!', 'player', 15);
+							this.doResult('Player wins!', 'player', 1);
 						} else if (playerSum < dealerSum) {
-							this.doResult('Dealer wins!', 'dealer', -15);
+							this.doResult('Dealer wins!', 'dealer', -1);
 						} else {
 							this.doResult('Push', 'dealer', 0);
 						}
 					} else {
 						this.renderButton(BlackjackDeluxe.BUTTONS.HIT, 1);
 						this.renderButton(BlackjackDeluxe.BUTTONS.STAY, 1);
+						this.renderButton(BlackjackDeluxe.BUTTONS['2X'], 1);
 					}
 				}
 				bet() {
+					this.betAmt = this.betAmt + 15;
 					this.amt = this.amt - 15;
 					this.renderAmt(this.amt);
+					this.renderBet(this.betAmt);
+				}
+				adjustBet() {
+					if (this.betAmt > 15) {
+						this.betAmt = this.betAmt - 15;
+						this.amt = this.amt + 15;						
+					}
+					this.renderAmt(this.amt);
+					this.renderBet(this.betAmt);				
 				}
 				events() {
 					const $container = document.getElementsByClassName('controls')[0];
@@ -369,20 +378,26 @@
 						
 						switch(targ) {
 							case BlackjackDeluxe.BUTTONS.DEAL:
+								this.renderButton(BlackjackDeluxe.BUTTONS.DEAL);
+								this.adjustBet();
 								this.renderClear();
 								this.deal('dealer');
 								this.deal('player');
-								this.renderButton(BlackjackDeluxe.BUTTONS.DEAL);
 								this.compute();
 								break;
 							case BlackjackDeluxe.BUTTONS.HIT:
+								this.renderButton(BlackjackDeluxe.BUTTONS['2X']);
 								this.hit('player');
 								if (this.sum.player > 21) {
 									this.compute();
 								}
 								break;
+							case BlackjackDeluxe.BUTTONS['2X']:
+								this.hit('player');
+								this.bet();
 							case BlackjackDeluxe.BUTTONS.STAY:
 								this.renderButton(BlackjackDeluxe.BUTTONS.HIT);
+								this.renderButton(BlackjackDeluxe.BUTTONS.STAY);
 								while (this.sum.dealer < 17) {
 									this.hit('dealer');
 								}
@@ -391,7 +406,7 @@
 					}, true);
 				
 				}
-				doResult(msg, person, amt) {
+				doResult(msg, person, multi) {
 					this.renderResult(msg, person);
 					let nextPerson = 'dealer';
 					if (person === 'dealer') {
@@ -400,11 +415,28 @@
 					this.renderResult('', nextPerson);
 					this.renderDealerCard();
 					this.resetButtons();	
-					this.amt = this.amt + amt
+					this.amt = this.amt + (multi * this.betAmt);
 					this.renderAmt(this.amt);
+				}
+				renderButtons() {
+					const $container = document.getElementsByClassName('controls')[0];
+					const keys = Object.keys(BlackjackDeluxe.BUTTONS);
+					let tpl = ``;
+					
+					for (let i = keys.length; i--;) {
+						tpl = `${tpl}<button class="controlButton">${BlackjackDeluxe.BUTTONS[keys[i]]}</button>`;
+					}
+					$container.insertAdjacentHTML('beforeend', tpl);
+				}
+				renderBet(bet) {
+					const $container = document.getElementsByClassName('bet')[0];
+					$container.innerHTML = bet;
 				}
 				renderAmt(amt) {
 					const $container = document.getElementsByClassName('amt')[0];
+					if (amt % 1) {
+						amt = amt.toFixed(2);
+					}
 					$container.innerHTML = amt;
 				}
 				renderDealerCard() {
@@ -456,7 +488,7 @@
 
 				init() {
 					this.shuffle();
-					//console.log(BlackjackDeluxe.BUTTONS.DEAL);
+					this.renderButtons();
 					this.renderButton(BlackjackDeluxe.BUTTONS.DEAL, 1);
 					this.events();
 					this.renderAmt(this.amt);
@@ -467,7 +499,7 @@
 			
 			BlackjackDeluxe.BUTTONS = (function() {
 				let obj = {};
-				let list = ['Deal', 'Hit', 'Stay'];
+				let list = ['Deal', 'Hit', 'Stay', '2x', 'Split'];
 				for (let i = list.length; i--;) {
 					obj[list[i].toUpperCase()] = list[i].toLowerCase();
 				}
